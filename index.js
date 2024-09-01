@@ -1,3 +1,5 @@
+// challenges: make sure that all multiple choice answers are unique
+
 const express = require('express');
 const { Pool } = require('pg');
 const { MongoClient, ServerApiVersion } = require('mongodb');
@@ -18,6 +20,7 @@ const pool = new Pool({
 });
 
 const uri = "mongodb+srv://mchuangyc:p10U1cicI1VpoYTN@cluster0.basxm.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+
 const client = new MongoClient(uri, { serverApi: ServerApiVersion.v1 });
 
 let database;
@@ -58,7 +61,7 @@ async function updateUserPoints(email, points, word, isCorrect) {
 
     if (isCorrect) {
       user.correctList = updateCorrectList(user.correctList, word);
-      if (user.wrongList[word]) delete user.wrongList[word]; // Remove from wrongList if it's there
+      if (user.wrongList[word]) delete user.wrongList[word];
     } else {
       user.wrongList = updateWrongList(user.wrongList, word);
     }
@@ -202,9 +205,9 @@ app.get('/quiz', async (req, res) => {
         OFFSET floor(random() * (SELECT COUNT(*) FROM latin_roots)) LIMIT 1
       ),
       wrong_answers AS (
-        SELECT definition AS wrong_answer
+        SELECT DISTINCT definition AS wrong_answer
         FROM latin_roots
-        WHERE definition NOT IN (SELECT correct_answer FROM random_question)
+        WHERE definition <> (SELECT correct_answer FROM random_question)
         ORDER BY random()
         LIMIT 3
       )
@@ -212,14 +215,33 @@ app.get('/quiz', async (req, res) => {
       FROM random_question, wrong_answers
       GROUP BY question, correct_answer;
     `);
+
     if (result.rows.length === 0) {
       throw new Error('No quiz question found');
     }
+
     const quiz = result.rows[0];
+    const allAnswers = [quiz.correct_answer, ...quiz.wrong_answers];
+
+    const uniqueAnswers = [...new Set(allAnswers)];
+
+    while (uniqueAnswers.length < 4) {
+      const additionalAnswers = await pool.query(`
+        SELECT DISTINCT definition AS wrong_answer
+        FROM latin_roots
+        WHERE definition <> $1
+        AND definition NOT IN (${uniqueAnswers.map((_, i) => `$${i + 2}`).join(', ')})
+        ORDER BY random()
+        LIMIT ${4 - uniqueAnswers.length};
+      `, [quiz.correct_answer, ...uniqueAnswers]);
+
+      uniqueAnswers.push(...additionalAnswers.rows.map(row => row.wrong_answer));
+    }
+
     res.json({
       question: quiz.question,
       correct_answer: quiz.correct_answer,
-      answers: [quiz.correct_answer, ...quiz.wrong_answers],
+      answers: uniqueAnswers.sort(() => Math.random() - 0.5),
     });
   } catch (err) {
     console.error('Error executing query', err.stack);
