@@ -16,10 +16,10 @@ app.use(cors());
 app.use(express.json());
 
 const pool = new Pool({
-  connectionString: 'postgresql://LatinRootsModule_owner:Y5OFJKV3xjnr@ep-soft-limit-a5i6em4x.us-east-2.aws.neon.tech/LatinRootsModule?sslmode=require',
+  connectionString: process.env.POSTGRES_URI,
 });
 
-const uri = "mongodb+srv://mchuangyc:p10U1cicI1VpoYTN@cluster0.basxm.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const uri = process.env.MONGODB_URI;
 
 const client = new MongoClient(uri, { serverApi: ServerApiVersion.v1 });
 
