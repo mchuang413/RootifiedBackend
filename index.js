@@ -205,14 +205,14 @@ app.get('/quiz', async (req, res) => {
         OFFSET floor(random() * (SELECT COUNT(*) FROM latin_roots)) LIMIT 1
       ),
       wrong_answers AS (
-        SELECT definition AS wrong_answer
+        SELECT wrong_answer
         FROM (
-          SELECT DISTINCT definition
+          SELECT DISTINCT definition AS wrong_answer
           FROM latin_roots
           WHERE definition <> (SELECT correct_answer FROM random_question)
-          ORDER BY random()
-          LIMIT 3
         ) AS subquery
+        ORDER BY random()
+        LIMIT 3
       )
       SELECT question, correct_answer, array_agg(wrong_answer) AS wrong_answers
       FROM random_question, wrong_answers
